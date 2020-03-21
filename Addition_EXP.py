@@ -1,4 +1,5 @@
 import numpy as np
+#import tt
 import learning
 import synthetic_data
 import pickle
@@ -8,7 +9,7 @@ from shutil import copyfile
 import time
 import matplotlib.pyplot as plt
 import argparse
-
+from TT_learning import TT_spectral_learning
 def tic():
     return time.clock()
 
@@ -16,18 +17,13 @@ def toc(t):
     return time.clock() - t
 
 
-def generate_data_simple_addition(N_samples, seq_length, noise=0.):
-    X = []
-    Y = []
-    for i in range(N_samples):
-        if seq_length > 0:
-            X.append(np.hstack((np.random.normal(0, 1, [seq_length, 2]),np.ones([seq_length,1]))))
-            y = X[-1][:,0].sum()-X[-1][:,1].sum() + np.random.normal(0,noise)
-        else:
-            X.append([])
-            y = 0
-        Y.append(y)
-    return np.asarray(X),np.asarray(Y).squeeze()
+def generate_data_simple_addition(num_examples, traj_length, n_dim = 1, noise_level = 0.1):
+    X = np.random.rand(num_examples, n_dim + 1, traj_length)
+    X[:, -1, :] = np.ones((num_examples, traj_length))
+    Y = np.sum(X[:, :-1, :], axis=2)
+    Y = Y.reshape(num_examples, -1) + np.random.normal(0, noise_level, [num_examples, n_dim]).reshape(num_examples,
+                                                                                                      n_dim)
+    return X, Y
 def sum_untill_length(length, dim):
     temp = 0
     for i in range(1, length+1):
@@ -45,7 +41,7 @@ if __name__ == '__main__':
     #print(N_runs)
     length = 2
     test_length = 6
-    methods = ['NuclearNorm', 'TIHT', 'IHT', 'OLS', 'LSTM']
+    methods = ['ALS']
     TIHT_epsilon = 1e-15
     TIHT_learning_rate = 1e-1
     TIHT_max_iters = 5000
@@ -57,6 +53,7 @@ if __name__ == '__main__':
     tol = 50
     verbose = False
 
+    ALS_epochs = 50
     parser = argparse.ArgumentParser()
     parser.add_argument('-lne', '--list_number_examples', nargs = '+', help='list of examples numbers', type=int)
     parser.add_argument('-nr', '--number_runs', help='number of runs', type=int)
@@ -147,16 +144,18 @@ if __name__ == '__main__':
     times['NUM_EXAMPLES'] = L_num_examples
 
 
-    print(N_runs)
+
     for run in range(N_runs):
+
+
         if load_data == False:
-            data_function = lambda l: generate_data_simple_addition(1000, l, noise=noise_level)
+            data_function = lambda l: generate_data_simple_addition(1000, l, noise_level=noise_level)
             Xtest, ytest = data_function(test_length)
             with open('./Data/Addition/noise_' + str(noise_level) + '/Test.pickle', 'wb') as f:
                 pickle.dump([Xtest, ytest], f)
 
         elif load_data == True:
-            data_function = lambda l: generate_data_simple_addition(1000, l, noise=noise_level)
+            data_function = lambda l: generate_data_simple_addition(1000, l, noise_level=noise_level)
             with open('./Data/Addition/noise_' + str(noise_level) + '/Test.pickle', 'rb') as f:
                 [Xtest, ytest] = pickle.load(f)
 
@@ -166,14 +165,14 @@ if __name__ == '__main__':
         for num_examples in L_num_examples:
             print('______\nsample size:', num_examples)
             print('Current Experiment: Addition with noise '+str(noise_level) +' and ' + str(num_states)+' states')
-            data_function = lambda l: generate_data_simple_addition(num_examples, l, noise=noise_level)
+            data_function = lambda l: generate_data_simple_addition(num_examples, l, noise_level =noise_level)
             Xl, yl = data_function(length)
             X2l, y2l = data_function(length * 2)
             X2l1, y2l1 = data_function(length * 2 + 1)
 
             for method in methods:
-
-                if method != 'LSTM' and method != 'TIHT+SGD':
+                print(method)
+                if method != 'LSTM' and method != 'TIHT+SGD' and method != 'ALS':
                     Tl = learning.sequence_to_tensor(Xl)
                     T2l = learning.sequence_to_tensor(X2l)
                     T2l1 = learning.sequence_to_tensor(X2l1)
@@ -215,7 +214,7 @@ if __name__ == '__main__':
                     X = np.concatenate((Xl_padded, X2l_padded, X2l1_padded))
                     Y = np.concatenate((yl, y2l, y2l1))
                     t = tic()
-                    learned_model = learning.RNN_LSTM(X, Y, test_length, noise_level, 'RandomRNN')
+                    learned_model = learning.RNN_LSTM(X, Y, test_length, num_states, noise_level, 'RandomRNN')
                     test_mse = learning.compute_mse(learned_model, Xtest, ytest, lstm = True)
                     train_mse = learning.compute_mse(learned_model, X2l1_padded, y2l1, lstm = True)
                     #if train_mse > np.mean(y2l1 ** 2):
@@ -244,6 +243,22 @@ if __name__ == '__main__':
                     results[method][num_examples].append(test_mse)
                     times[method][num_examples].append(toc(t))
 
+                elif method == 'ALS':
+                    yl_temp = yl.reshape(-1, 1)
+                    y2l_temp = y2l.reshape(-1, 1)
+                    y2l1_temp = y2l1.reshape(-1, 1)
+                    print(Xl.shape, yl.shape)
+                    H_l_cores = learning.ALS(Xl, yl_temp, rank = num_states, X_vali = None, Y_vali = None, n_epochs = ALS_epochs)
+                    H_2l_cores = learning.ALS(X2l, y2l_temp, rank=num_states, X_vali=None, Y_vali=None, n_epochs=ALS_epochs)
+                    H_2l1_cores = learning.ALS(X2l1, y2l1_temp, rank=num_states, X_vali=None, Y_vali=None, n_epochs=ALS_epochs)
+                    learned_model = TT_spectral_learning(H_2l_cores, H_2l1_cores, H_l_cores)
+                    test_mse = learning.compute_mse(learned_model, Xtest, ytest, if_tc=True)
+                    train_mse = learning.compute_mse(learned_model, X2l1, y2l1, if_tc=True)
+                    if train_mse > np.mean(y2l1 ** 2):
+                        test_mse = np.mean(ytest ** 2)
+                    print(method, "test MSE:", test_mse, "\t\ttime:", toc(t))
+                    results[method][num_examples].append(test_mse)
+                    times[method][num_examples].append(toc(t))
 
             with open(xp_path + 'results_'+str(num_states)+'_states.pickle','wb') as f:
                 pickle.dump(results,f)

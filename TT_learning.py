@@ -226,7 +226,11 @@ def _rightorth(a, b):
     """
     adim = np.array(a.shape)
     bdim = np.array(b.shape)
-    cr = np.reshape(a, (adim[0]*adim[1], adim[2]), order='F')
+    print(a.shape, b.shape)
+    if len(a.shape) < 3:
+        cr = np.reshape(a, (adim[0], adim[1]), order='F')
+    else:
+        cr = np.reshape(a, (adim[0]*adim[1], adim[2]), order='F')
     cr2 = np.reshape(b, (bdim[0],bdim[1]*bdim[2]), order='F')
     [cr, R] = np.linalg.qr(cr)
     cr2 = np.dot(R, cr2)

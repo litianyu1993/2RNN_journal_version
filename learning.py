@@ -24,9 +24,8 @@ from keras import optimizers
 from keras.models import Model
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+from Fast_hankel_recovery import train_ALS
 
 def compute_mse(mdl, X, y, print_first_five_results = False, lstm = False, if_tf = False, if_tc = False):
     '''
@@ -195,6 +194,14 @@ def OLS(X,Y):
     l = X[0].ndim
     p = Y.shape[1]
     return np.linalg.lstsq(X.reshape(N,dim**l),Y, rcond=None)[0].reshape([dim]*l + [p])
+def convert_to_array(tt):
+    tt_arr = []
+    for i in range(len(tt)):
+        tt_arr.append(tt[i].tensor)
+    return tt_arr
+def ALS(X, Y, rank, X_vali = None, Y_vali = None, n_epochs = 50):
+    error, test_error, tt = train_ALS(X, Y, rank, X_val=X_vali, Y_val=Y_vali, n_epochs=n_epochs)
+    return convert_to_array(tt)
 
 def nuclear_norm_cv_alpha(X, y, alpha_ini_value = 0.1, alpha_vec = []):
     #cross validation for nuclear norm's alpha
@@ -436,7 +443,7 @@ def spectral_learning(rank, H_2l, H_2l1, H_l):
     model = LinRNN(alpha, A, omega)
     return model
 
-def RNN_LSTM(X, Y, test_length, noise_level, Experiment, num_state = 20, if_linear = False):
+def RNN_LSTM(X, Y, test_length, num_state, noise_level, Experiment, if_linear = False):
 
 
     xavia = keras.initializers.glorot_normal(seed=None)
@@ -455,13 +462,13 @@ def RNN_LSTM(X, Y, test_length, noise_level, Experiment, num_state = 20, if_line
     early_stopping = EarlyStopping(monitor='val_loss', patience=200)
     reduceonplateau = keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
                                                         factor=0.1, patience=50, verbose=0,
-                                                        mode='auto',
+                                                        mode='auto', min_delta=0.0001,
                                                         cooldown=0, min_lr=0)
 
     inputs = Input(shape=(X.shape[1], X.shape[2]))
     mask = Masking(mask_value=0.0)(inputs)
     if if_linear == 'True':
-        lstm_out = LSTM(num_state, activation='tanh', recurrent_activation='tanh', kernel_initializer=xavia)(mask)
+        lstm_out = LSTM(num_state, activation='linear', recurrent_activation='linear', kernel_initializer=xavia)(mask)
 
     else:
         lstm_out = LSTM(num_state)(mask)

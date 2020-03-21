@@ -1,8 +1,16 @@
 import numpy as np
 import learning
+import synthetic_data
+import pickle
 import os
+import sys
+from shutil import copyfile
+import time
+import matplotlib.pyplot as plt
 import argparse
+import pickle
 import torch
+import shlex
 
 def get_data_from_file(train_file_path, test_file_path, normalize = False):
     train_data = np.genfromtxt(train_file_path, delimiter=',')
@@ -80,8 +88,8 @@ parser.add_argument('-t', '--tolerance', help='tolerance for sgd 2rnn', type=int
 
 parser.add_argument('-ns', '--states_number', help='number of states for the model', type=int, default=5)
 parser.add_argument('-norm', '--normalize', help = 'if normalize the data', action = 'store_true')
-parser.add_argument('-trf', '--train_file', help = 'file path for training data', type = str, default='./Data/customized/single_traj/train_data.csv')
-parser.add_argument('-tef', '--test_file', help = 'file path for testing data', type = str, default='./Data/customized/single_traj/test_data.csv')
+parser.add_argument('-trf', '--train_file', help = 'file path for training data', type = str, default='train_data.csv')
+parser.add_argument('-tef', '--test_file', help = 'file path for testing data', type = str, default='test_data.csv')
 parser.add_argument('-tvs', '--train_validation_split', help = 'split ratio for training and validation', type = float, default=0.2)
 args = parser.parse_args()
 

@@ -1,7 +1,9 @@
+#import tensorflow as tf
+#tf.enable_eager_execution()
 import os
+import sys
 import argparse
 num_examples = [50, 100, 200, 400, 800, 1600, 3200]
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--Experiment', help = 'n mame of the experiment, available: Addition, RandomRNN, Wind', default='Addition')
@@ -29,17 +31,15 @@ if Experiment == 'Wind':
         "python Wind_EXP.py -lm TIHT+SGD TIHT -ns 10 -mi 10000 -epo2 2000 -nr " + str(N_runs)
     )
 else:
-    methods = 'LSTM TIHT TIHT+SGD'
+    #methods = 'LSTM TIHT TIHT+SGD'
+    methods = 'ALS'
     for num_example in num_examples:
-        s_num_example = str(num_example)
         if Experiment == 'Addition':
             num_states = 2
-            os.system("python Addition_EXP.py -var "+str(noise) + " -ns "+str(num_states) + " -a 1 -nr "
-                      +str(N_runs) +" -ld -lm "+ methods+" -lne " + s_num_example)
+            os.system("python Addition_EXP.py -var "+str(noise) + " -ns "+str(num_states) + " -a 1 -nr " +str(N_runs) +" -ld -lm "+ methods)
             num_states = 4
             os.system(
-                "python Addition_EXP.py -var " + str(noise) + " -ns " + str(num_states) + " -a 1 -nr " +str(N_runs)
-                +" -ld -lm " + methods+" -lne " + s_num_example)
+                "python Addition_EXP.py -var " + str(noise) + " -ns " + str(num_states) + " -a 1 -nr " +str(N_runs) +" -ld -lm " + methods)
         elif Experiment == 'RandomRNN':
             num_states = 5
             os.system(
